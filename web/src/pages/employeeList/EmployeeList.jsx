@@ -10,23 +10,39 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Dialog } from 'primereact/dialog';
 import { Helmet } from 'react-helmet';
+import UserService from "../../services/UserService";
+import { useNavigate } from "react-router-dom";
 
 function EmployeeList() {
+  const isFilter = useState(true);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandEmployee, setExpandEmployee] = useState(null);
   const [filter, setFilter] = useState("");
   const [selectedPermission, setSelectedPermission] = useState("Todos");
+  const [selectedRole, setSelectedRole] = useState("");
+  const userService = new UserService();
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user'));
 
   const permissions = [
     { label: "Todos", value: "Todos", icon: '/images/icon_role0_marked.png' },
     { label: "Emissor de Comunicados", value: "Emissor de comunicados", icon: '/images/icon_role1_marked.png' },
-    { label: "Gerenciador de Cadastrados", value: "Gerenciador de cadastros", icon: '/images/icon_role3_marked.png' },
     { label: "Gerenciador do Sistema", value: "Gerenciador do sistema", icon: '/images/icon_role4_marked.png' },
   ];
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [dialogPermission, setDialogPermission] = useState(null);
+
+  useEffect(() => {
+    if (!loading) {
+      document.documentElement.style.setProperty('--footer-width', isFilter ? 'calc(100% - 325px)' : '100%');
+  
+      return () => {
+        document.documentElement.style.setProperty('--footer-width', '100%');
+      };
+    }
+  }, [isFilter, loading]);
 
   const permissionsFilterTemplate = (option) => {
     return (
@@ -40,7 +56,6 @@ function EmployeeList() {
   };
 
   const handleDialogOpen = (employee) => {
-
     setSelectedEmployee(employee);
     setDialogPermission(employee.permissao);
     setVisible(true);
@@ -75,7 +90,7 @@ function EmployeeList() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ permissao: dialogPermission }),
+        body: JSON.stringify({ role: dialogPermission }), 
       });
 
       if (response.ok) {
@@ -92,6 +107,29 @@ function EmployeeList() {
       }
     } catch (error) {
       console.error("Erro ao atualizar a permissão:", error);
+    }
+  };
+
+  const saveUser = async (user) => {
+    try {
+      let role;
+      switch (selectedRole) {
+        case "Emissor de Comunicados":
+          role = "ANNOUNCEMENT_ISSUER";
+          break;
+        case "Gerenciador do Sistema":
+          role = "ADMIN";
+          break;
+        default:
+          role = "UNDEFINED";
+          break;
+      }
+      await userService.updateUserRole(user.siape, role);
+      navigate("/employee-list");
+
+      console.log("Permissão atualizada com sucesso!");
+    } catch (error) {
+      console.error("Error atualizando a permissão do usuário:", error);
     }
   };
 
@@ -151,12 +189,6 @@ function EmployeeList() {
           {/* style necessário apenas caso usuário tiver mais de uma role*/}
           <img
             alt="logo"
-            src="/images/icon_role3_marked.png"
-            height={`${employee.permissao == "Gerenciador de cadastros" ? "35" : "0"}`}
-            style={{ padding: `${employee.permissao == "Gerenciador de cadastros" ? '0 20px 0 0' : "0 0 0 0"}` }}
-            className="icon_role" />
-          <img
-            alt="logo"
             src="/images/icon_role4_marked.png"
             height={`${employee.permissao == "Gerenciador do sistema" ? "35" : "0"}`}
             style={{ padding: `${employee.permissao == "Gerenciador do sistema" ? '0 20px 0 0' : "0 0 0 0"}` }}
@@ -180,6 +212,14 @@ function EmployeeList() {
     );
   };
 
+  const handleButtonClick = () => {
+    if (user.role !== 'ADMIN') {
+      alert('Você não tem permissão para acessar esta funcionalidade.');
+    } else {
+      // Ação permitida para ADMIN
+    }
+  };
+
   if (loading) {
     return (
       <div className="spinner-container">
@@ -189,7 +229,7 @@ function EmployeeList() {
   }
 
   return (
-    <div className="container">
+    <div className="employeelist-container">
       <Helmet>
         <title>Servidores - NOTIFY</title>
       </Helmet>
@@ -237,6 +277,8 @@ function EmployeeList() {
           />
         </Card>
       </div>
+      <div className="cover-container"></div>
+      <Button label="Ação Restrita" onClick={handleButtonClick} />
     </div>
   );
 }
